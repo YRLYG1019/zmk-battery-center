@@ -24,6 +24,7 @@ import { useConfigContext } from "@/providers/config-provider";
 import { platform } from "@tauri-apps/plugin-os";
 import { invoke } from "@tauri-apps/api/core";
 import { useWindowEvents } from "@/hooks/use-window-events";
+import { clampWindowOpacity } from "@/utils/config";
 import type { RegisteredDevice } from "@/utils/app-helpers";
 import { withTimeout } from "@/utils/common";
 import {
@@ -113,6 +114,14 @@ function App() {
     isConfigLoaded,
     onWindowPositionChange: handleWindowPositionChange,
   });
+
+  // Apply the configured window opacity to the whole window content.
+  const windowOpacity = clampWindowOpacity(config.windowOpacity);
+  useEffect(() => {
+    const root = document.getElementById("root");
+    if (!root) return;
+    root.style.opacity = String(windowOpacity / 100);
+  }, [windowOpacity]);
 
   const fetchDevices = useCallback(async () => {
     setState(State.fetchingDevices);

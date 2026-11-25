@@ -7,7 +7,10 @@ import {
   MIN_BATTERY_THRESHOLD,
   MAX_BATTERY_THRESHOLD,
   clampBatteryThreshold,
+  clampWindowOpacity,
   defaultConfig,
+  MIN_WINDOW_OPACITY,
+  MAX_WINDOW_OPACITY,
 } from "../utils/config";
 import { useTheme, type Theme } from "@/providers/theme-provider";
 import {
@@ -38,7 +41,7 @@ function LoggingSettings() {
         if (!cancelled) setLevel(state.level);
       })
       .catch(() => {
-        if (!cancelled) setError("Failed to load log level.");
+        if (!cancelled) setError("ログレベルを読み込めませんでした。");
       });
     return () => {
       cancelled = true;
@@ -58,7 +61,7 @@ function LoggingSettings() {
   return (
     <SettingsGroup>
       <div className="flex items-center justify-between gap-3">
-        <span>Log level</span>
+        <span>ログレベル</span>
         <Select
           value={level ?? ""}
           disabled={busy || level === null}
@@ -69,13 +72,13 @@ function LoggingSettings() {
             })
           }
         >
-          <SelectTrigger aria-label="Log level" className="w-28">
-            <SelectValue placeholder="Loading" />
+          <SelectTrigger aria-label="ログレベル" className="w-28">
+            <SelectValue placeholder="読み込み中" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="warn">Warn</SelectItem>
-            <SelectItem value="info">Info</SelectItem>
-            <SelectItem value="debug">Debug</SelectItem>
+            <SelectItem value="warn">警告</SelectItem>
+            <SelectItem value="info">情報</SelectItem>
+            <SelectItem value="debug">デバッグ</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -170,23 +173,70 @@ function BatteryThresholdInput({
   );
 }
 
+interface WindowOpacitySliderProps {
+  value: number;
+  onCommit: (value: number) => void;
+}
+
+function WindowOpacitySlider({ value, onCommit }: WindowOpacitySliderProps) {
+  const [draft, setDraft] = React.useState(value);
+  const [prevValue, setPrevValue] = React.useState(value);
+  if (prevValue !== value) {
+    setPrevValue(value);
+    setDraft(value);
+  }
+
+  // Preview the opacity while dragging; the config is saved on release.
+  const preview = (next: number) => {
+    setDraft(next);
+    const root = document.getElementById("root");
+    if (root) root.style.opacity = String(next / 100);
+  };
+
+  const commit = () => {
+    if (draft !== value) onCommit(draft);
+  };
+
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="flex items-center justify-between gap-3">
+        <span>不透明度</span>
+        <span className="tabular-nums text-sm">{draft}%</span>
+      </div>
+      <input
+        type="range"
+        min={MIN_WINDOW_OPACITY}
+        max={MAX_WINDOW_OPACITY}
+        step={5}
+        value={draft}
+        aria-label="ウィンドウの不透明度"
+        onChange={(e) => preview(Number(e.target.value))}
+        onPointerUp={commit}
+        onKeyUp={commit}
+        onBlur={commit}
+        className="w-full accent-primary"
+      />
+    </div>
+  );
+}
+
 const fetchIntervalOptions = [
-  { label: "Auto", value: FETCH_INTERVAL_AUTO },
-  { label: "10 sec", value: 10_000 },
-  { label: "30 sec", value: 30_000 },
-  { label: "1 min", value: 60_000 },
-  { label: "3 min", value: 180_000 },
-  { label: "5 min", value: 300_000 },
-  { label: "10 min", value: 600_000 },
-  { label: "20 min", value: 1_200_000 },
-  { label: "30 min", value: 1_800_000 },
+  { label: "自動", value: FETCH_INTERVAL_AUTO },
+  { label: "10秒", value: 10_000 },
+  { label: "30秒", value: 30_000 },
+  { label: "1分", value: 60_000 },
+  { label: "3分", value: 180_000 },
+  { label: "5分", value: 300_000 },
+  { label: "10分", value: 600_000 },
+  { label: "20分", value: 1_200_000 },
+  { label: "30分", value: 1_800_000 },
 ];
 
 const trayIconComponentOptions = [
-  { label: "App icon", value: TrayIconComponent.AppIcon },
-  { label: "Role label", value: TrayIconComponent.RoleLabel },
-  { label: "Battery icon", value: TrayIconComponent.BatteryIcon },
-  { label: "Battery percentage", value: TrayIconComponent.BatteryPercent },
+  { label: "アプリアイコン", value: TrayIconComponent.AppIcon },
+  { label: "左右ラベル", value: TrayIconComponent.RoleLabel },
+  { label: "電池アイコン", value: TrayIconComponent.BatteryIcon },
+  { label: "電池残量(%)", value: TrayIconComponent.BatteryPercent },
 ];
 
 const Settings: React.FC<SettingsScreenProps> = ({ onExit }) => {
@@ -207,13 +257,19 @@ const Settings: React.FC<SettingsScreenProps> = ({ onExit }) => {
 
   return (
     <div className="fixed inset-0 z-50 flex h-full w-full min-h-0 flex-col p-2">
-      <div className="shrink-0 flex justify-end">
+      <div
+        className={cn(
+          "shrink-0 flex justify-end",
+          config.manualWindowPositioning && "cursor-grab active:cursor-grabbing",
+        )}
+        data-tauri-drag-region={config.manualWindowPositioning ? true : undefined}
+      >
         <TopRightButtons
           buttons={[
             {
               icon: <XMarkIcon className="size-5 text-foreground" />,
               onClick: onExit,
-              ariaLabel: "Close",
+              ariaLabel: "閉じる",
             },
           ]}
         />
@@ -225,7 +281,7 @@ const Settings: React.FC<SettingsScreenProps> = ({ onExit }) => {
           {/* Auto start at login */}
           <SettingsGroup>
             <div className="flex items-center justify-between gap-3">
-              <span className="shrink-0">Auto start at login</span>
+              <span className="shrink-0">ログイン時に自動起動</span>
               <Switch
                 checked={config.autoStart}
                 onCheckedChange={(checked) => setConfig((c) => ({ ...c, autoStart: checked }))}
@@ -236,7 +292,7 @@ const Settings: React.FC<SettingsScreenProps> = ({ onExit }) => {
           {/* Theme */}
           <SettingsGroup>
             <div className="flex justify-between items-center">
-              <span>Theme</span>
+              <span>テーマ</span>
               <div className="flex-1 flex justify-end gap-2">
                 {[
                   {
@@ -244,20 +300,20 @@ const Settings: React.FC<SettingsScreenProps> = ({ onExit }) => {
                     icon: (
                       <div className="flex flex-col items-center justify-center">
                         <SunIcon className="w-6 h-6" />
-                        <span className="text-xs">Light</span>
+                        <span className="text-xs">ライト</span>
                       </div>
                     ),
-                    label: "Light",
+                    label: "ライト",
                   },
                   {
                     key: "dark",
                     icon: (
                       <div className="flex flex-col items-center justify-center">
                         <MoonIcon className="w-6 h-6" />
-                        <span className="text-xs">Dark</span>
+                        <span className="text-xs">ダーク</span>
                       </div>
                     ),
-                    label: "Dark",
+                    label: "ダーク",
                   },
                   {
                     key: "system",
@@ -282,10 +338,10 @@ const Settings: React.FC<SettingsScreenProps> = ({ onExit }) => {
                             />
                           </svg>
                         </span>
-                        <span className="text-xs">System</span>
+                        <span className="text-xs">システム</span>
                       </div>
                     ),
-                    label: "System",
+                    label: "システム",
                   },
                 ].map((opt) => (
                   <Button
@@ -306,10 +362,39 @@ const Settings: React.FC<SettingsScreenProps> = ({ onExit }) => {
             </div>
           </SettingsGroup>
 
+          {/* Window */}
+          <SettingsGroup className="flex w-full flex-col gap-2">
+            <div className="flex items-center justify-between gap-3">
+              <span>ウィンドウを移動できるようにする</span>
+              <Switch
+                aria-label="ウィンドウを移動できるようにする"
+                checked={config.manualWindowPositioning}
+                onCheckedChange={(checked) =>
+                  setConfig((c) => ({ ...c, manualWindowPositioning: checked }))
+                }
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              オンにすると、ウィンドウ上部の余白をドラッグして好きな位置へ移動できます。位置は保存されます。
+            </p>
+            <div className="flex items-center justify-between gap-3">
+              <span>ウィンドウを常に表示(ピン留め)</span>
+              <Switch
+                aria-label="ウィンドウを常に表示(ピン留め)"
+                checked={config.pinWindow}
+                onCheckedChange={(checked) => setConfig((c) => ({ ...c, pinWindow: checked }))}
+              />
+            </div>
+            <WindowOpacitySlider
+              value={clampWindowOpacity(config.windowOpacity)}
+              onCommit={(value) => setConfig((c) => ({ ...c, windowOpacity: value }))}
+            />
+          </SettingsGroup>
+
           {/* Battery refresh interval */}
           <SettingsGroup>
             <div className="flex min-w-0 items-center justify-between gap-3">
-              <span className="shrink-0">Battery refresh interval</span>
+              <span className="shrink-0">電池残量の更新間隔</span>
               <div className="flex min-w-0 max-w-full flex-1 basis-0 justify-end">
                 <Select
                   value={config.fetchInterval.toString()}
@@ -328,7 +413,7 @@ const Settings: React.FC<SettingsScreenProps> = ({ onExit }) => {
                       "*:data-[slot=select-value]:block! *:data-[slot=select-value]:line-clamp-2! *:data-[slot=select-value]:whitespace-normal! *:data-[slot=select-value]:text-left",
                     )}
                   >
-                    <SelectValue placeholder="Select" />
+                    <SelectValue placeholder="選択" />
                   </SelectTrigger>
                   <SelectContent>
                     {fetchIntervalOptions.map((opt) => (
@@ -345,7 +430,7 @@ const Settings: React.FC<SettingsScreenProps> = ({ onExit }) => {
           {/* Auto collapse disconnected devices */}
           <SettingsGroup>
             <div className="flex items-center justify-between gap-3">
-              <span className="shrink-0">Auto collapse disconnected devices</span>
+              <span>切断中のデバイスを自動で折りたたむ</span>
               <Switch
                 checked={config.autoCollapseDisconnectedDevices}
                 onCheckedChange={(checked) =>
@@ -359,7 +444,7 @@ const Settings: React.FC<SettingsScreenProps> = ({ onExit }) => {
           {isMac && (
             <SettingsGroup className="flex w-full flex-col gap-2">
               <div className="flex justify-between">
-                <span>Tray icon components [macOS only]</span>
+                <span>トレイアイコンの表示項目 [macOSのみ]</span>
               </div>
               <ul className="w-full space-y-0.5 pl-2">
                 {trayIconComponentOptions.map((option) => {
@@ -387,7 +472,7 @@ const Settings: React.FC<SettingsScreenProps> = ({ onExit }) => {
           {/* Push notifications */}
           <SettingsGroup className="flex w-full flex-col gap-2">
             <div className="flex items-center justify-between gap-3">
-              <span className="shrink-0">Push notifications</span>
+              <span className="shrink-0">プッシュ通知</span>
               <Switch
                 checked={config.pushNotification}
                 onCheckedChange={(checked) =>
@@ -400,7 +485,7 @@ const Settings: React.FC<SettingsScreenProps> = ({ onExit }) => {
             >
               <li className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-1">
-                  <Dot /> when battery level ≤
+                  <Dot /> 電池残量が
                   <BatteryThresholdInput
                     value={config.lowBatteryThreshold}
                     disabled={
@@ -409,15 +494,15 @@ const Settings: React.FC<SettingsScreenProps> = ({ onExit }) => {
                     }
                     disabledTitle={
                       !config.pushNotification
-                        ? "Enable push notifications to edit"
-                        : "Enable the toggle on the right to edit"
+                        ? "編集するにはプッシュ通知をオンにしてください"
+                        : "編集するには右のスイッチをオンにしてください"
                     }
                     fallback={defaultConfig.lowBatteryThreshold}
                     max={config.highBatteryThreshold - 1}
                     onCommit={(value) => setConfig((c) => ({ ...c, lowBatteryThreshold: value }))}
-                    ariaLabel="Low battery threshold"
+                    ariaLabel="低残量のしきい値"
                   />
-                  %
+                  %以下
                 </div>
                 <Switch
                   checked={config.pushNotificationWhen[NotificationType.LowBattery]}
@@ -435,7 +520,7 @@ const Settings: React.FC<SettingsScreenProps> = ({ onExit }) => {
               </li>
               <li className="ml-4 flex items-center justify-between gap-3">
                 <div>
-                  <Dot /> Ignore 0%
+                  <Dot /> 0%は無視する
                 </div>
                 <Switch
                   checked={config.ignoreZeroPercent}
@@ -450,7 +535,7 @@ const Settings: React.FC<SettingsScreenProps> = ({ onExit }) => {
               </li>
               <li className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-1">
-                  <Dot /> when battery level ≥
+                  <Dot /> 電池残量が
                   <BatteryThresholdInput
                     value={config.highBatteryThreshold}
                     disabled={
@@ -459,15 +544,15 @@ const Settings: React.FC<SettingsScreenProps> = ({ onExit }) => {
                     }
                     disabledTitle={
                       !config.pushNotification
-                        ? "Enable push notifications to edit"
-                        : "Enable the toggle on the right to edit"
+                        ? "編集するにはプッシュ通知をオンにしてください"
+                        : "編集するには右のスイッチをオンにしてください"
                     }
                     fallback={defaultConfig.highBatteryThreshold}
                     min={config.lowBatteryThreshold + 1}
                     onCommit={(value) => setConfig((c) => ({ ...c, highBatteryThreshold: value }))}
-                    ariaLabel="High battery threshold"
+                    ariaLabel="高残量のしきい値"
                   />
-                  %
+                  %以上
                 </div>
                 <Switch
                   checked={config.pushNotificationWhen[NotificationType.HighBattery]}
@@ -485,7 +570,7 @@ const Settings: React.FC<SettingsScreenProps> = ({ onExit }) => {
               </li>
               <li className="flex items-center justify-between gap-3">
                 <div>
-                  <Dot /> when device connected
+                  <Dot /> デバイス接続時
                 </div>
                 <Switch
                   checked={config.pushNotificationWhen[NotificationType.Connected]}
@@ -503,7 +588,7 @@ const Settings: React.FC<SettingsScreenProps> = ({ onExit }) => {
               </li>
               <li className="flex items-center justify-between gap-3">
                 <div>
-                  <Dot /> when device disconnected
+                  <Dot /> デバイス切断時
                 </div>
                 <Switch
                   checked={config.pushNotificationWhen[NotificationType.Disconnected]}
@@ -524,9 +609,9 @@ const Settings: React.FC<SettingsScreenProps> = ({ onExit }) => {
 
           <SettingsGroup>
             <div className="flex items-center justify-between gap-3">
-              <span>Check for zmk-battery-center update</span>
+              <span>zmk-battery-center の更新を確認</span>
               <Switch
-                aria-label="Check for zmk-battery-center update"
+                aria-label="zmk-battery-center の更新を確認"
                 checked={config.updateCheckEnabled}
                 onCheckedChange={(checked) =>
                   setConfig((current) => ({ ...current, updateCheckEnabled: checked }))
@@ -538,7 +623,7 @@ const Settings: React.FC<SettingsScreenProps> = ({ onExit }) => {
           {/* External battery snapshot */}
           <SettingsGroup>
             <div className="flex items-center justify-between gap-3">
-              <span className="shrink-0">External battery snapshot</span>
+              <span>外部連携用の電池情報を出力</span>
               <Switch
                 checked={config.externalBatterySnapshot}
                 onCheckedChange={(checked) =>

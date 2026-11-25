@@ -18,6 +18,9 @@ export enum NotificationType {
 export const MIN_BATTERY_THRESHOLD = 1;
 export const MAX_BATTERY_THRESHOLD = 99;
 
+export const MIN_WINDOW_OPACITY = 20;
+export const MAX_WINDOW_OPACITY = 100;
+
 export enum TrayIconComponent {
   AppIcon = "appIcon",
   RoleLabel = "roleLabel",
@@ -47,6 +50,8 @@ export type Config = {
     x: number;
     y: number;
   };
+  /** Window opacity in percent (MIN_WINDOW_OPACITY..MAX_WINDOW_OPACITY). */
+  windowOpacity: number;
   chartRangeMs: number;
   chartSmoothingWindowSize: number;
   chartCustomRange: { start: string; end: string } | null;
@@ -77,6 +82,7 @@ export const defaultConfig: Config = {
     x: 0,
     y: 0,
   },
+  windowOpacity: MAX_WINDOW_OPACITY,
   chartRangeMs: 0, // default: "All"
   chartSmoothingWindowSize: 30 * 60 * 1000, // 30 minutes in ms
   chartCustomRange: null,
@@ -114,6 +120,11 @@ export function clampBatteryThreshold(
   if (rounded < min) return min;
   if (rounded > max) return max;
   return rounded;
+}
+
+export function clampWindowOpacity(value: unknown): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) return MAX_WINDOW_OPACITY;
+  return Math.min(MAX_WINDOW_OPACITY, Math.max(MIN_WINDOW_OPACITY, Math.round(value)));
 }
 
 export async function loadSavedConfig(): Promise<Config> {

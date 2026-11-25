@@ -14,17 +14,17 @@ test("first launch shows no registered devices", async ({ page }) => {
 
 test("log level selection survives reopening and a new page", async ({ page, context }) => {
   await page.getByRole("button", { name: "Settings" }).click();
-  const select = page.getByRole("combobox", { name: "Log level" });
+  const select = page.getByRole("combobox", { name: "ログレベル" });
   await expect(select).toBeEnabled();
   await select.click();
-  await page.getByRole("option", { name: "Info", exact: true }).click();
-  await expect(select).toHaveText("Info");
-  await page.getByRole("button", { name: "Close", exact: true }).click();
+  await page.getByRole("option", { name: "情報", exact: true }).click();
+  await expect(select).toHaveText("情報");
+  await page.getByRole("button", { name: "閉じる", exact: true }).click();
   await page.getByRole("button", { name: "Settings" }).click();
-  await expect(select).toHaveText("Info");
+  await expect(select).toHaveText("情報");
   const reopened = await createSeededPage(context, baseSeed);
   await reopened.getByRole("button", { name: "Settings" }).click();
-  await expect(reopened.getByRole("combobox", { name: "Log level" })).toHaveText("Info");
+  await expect(reopened.getByRole("combobox", { name: "ログレベル" })).toHaveText("情報");
   await reopened.close();
 });
 

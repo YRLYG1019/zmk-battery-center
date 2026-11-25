@@ -137,10 +137,10 @@ describe("App", () => {
     await user.click(screen.getByRole("button", { name: "Settings" }));
 
     await waitFor(() => {
-      expect(screen.getByText("Auto start at login")).toBeTruthy();
+      expect(screen.getByText("ログイン時に自動起動")).toBeTruthy();
     });
     const updateSwitch = screen.getByRole("switch", {
-      name: "Check for zmk-battery-center update",
+      name: "zmk-battery-center の更新を確認",
     });
     expect(updateSwitch.getAttribute("data-state")).toBe("unchecked");
     await user.click(updateSwitch);
@@ -156,8 +156,8 @@ describe("App", () => {
     });
     renderApp();
     await user.click(screen.getByRole("button", { name: "Settings" }));
-    const select = await screen.findByRole("combobox", { name: "Log level" });
-    await waitFor(() => expect(select.textContent).toBe("Info"));
+    const select = await screen.findByRole("combobox", { name: "ログレベル" });
+    await waitFor(() => expect(select.textContent).toBe("情報"));
     expect(screen.queryByRole("heading", { name: "Logging" })).toBeNull();
     const logging = select.parentElement!.parentElement!;
     expect(logging.querySelector("p")).toBeNull();
@@ -176,13 +176,13 @@ describe("App", () => {
       });
       renderApp();
       await user.click(screen.getByRole("button", { name: "Settings" }));
-      const select = await screen.findByRole("combobox", { name: "Log level" });
-      await waitFor(() => expect(select.textContent).toBe("Warn"));
+      const select = await screen.findByRole("combobox", { name: "ログレベル" });
+      await waitFor(() => expect(select.textContent).toBe("警告"));
       select.focus();
       await user.keyboard("{ArrowDown}");
-      await user.click(await screen.findByRole("option", { name: "Debug" }));
+      await user.click(await screen.findByRole("option", { name: "デバッグ" }));
       expect((await screen.findByRole("alert")).textContent).toContain("Could not save log level");
-      expect(select.textContent).toBe("Warn");
+      expect(select.textContent).toBe("警告");
     } finally {
       if (previousScroll) HTMLElement.prototype.scrollIntoView = previousScroll;
       else Reflect.deleteProperty(HTMLElement.prototype, "scrollIntoView");

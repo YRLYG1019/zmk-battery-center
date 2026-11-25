@@ -315,6 +315,7 @@ fn default_config() -> Value {
         "manualWindowPositioning": false,
         "pinWindow": false,
         "windowPosition": {"x": 0, "y": 0},
+        "windowOpacity": 100,
         "chartRangeMs": 0,
         "chartSmoothingWindowSize": 30 * 60 * 1000_i64,
         "chartCustomRange": Value::Null,
@@ -399,6 +400,9 @@ fn normalize_config(raw: Option<Value>) -> Value {
         "windowPosition".to_string(),
         merge_object_values(&default_position, &raw_position),
     );
+
+    let opacity = finite_rounded(result.get("windowOpacity"), 100, 20, 100);
+    result.insert("windowOpacity".to_string(), json!(opacity));
 
     let low = finite_rounded(
         result.get("lowBatteryThreshold"),
